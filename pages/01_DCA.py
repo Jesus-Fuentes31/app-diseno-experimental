@@ -16,6 +16,13 @@ from utils.anova_utils import (
     tukey,
     validar_dca,
 )
+from utils.diagnostico_utils import (
+    grafico_qq,
+    grafico_residuos_vs_ajustados,
+    prueba_levene,
+    prueba_shapiro,
+    residuos_y_ajustados,
+)
 
 
 @st.cache_data
@@ -119,8 +126,8 @@ f_critica = float(
     distribucion_f.ppf(1 - alfa, gl_tratamientos, gl_error)
 )
 
-pestana_datos, pestana_anova, pestana_comparaciones, pestana_graficos = st.tabs(
-    ["Datos", "ANOVA", "Comparaciones", "Gráficos"]
+pestana_datos, pestana_anova, pestana_comparaciones, pestana_graficos, pestana_supuestos = st.tabs(
+    ["Datos", "ANOVA", "Comparaciones", "Gráficos", "Supuestos"]
 )
 
 with pestana_datos:
@@ -208,3 +215,60 @@ with pestana_graficos:
         },
     )
     st.plotly_chart(grafico_medias, width="stretch")
+
+with pestana_supuestos:
+    st.subheader("Diagnóstico de supuestos del DCA")
+    datos_residuos = residuos_y_ajustados(modelo)
+
+    st.markdown(
+        """
+        - **Normalidad:** Shapiro-Wilk y el gráfico Q-Q evalúan si los residuos
+          son compatibles con una distribución normal.
+        - **Homogeneidad de varianzas:** Levene compara la variabilidad de la
+          respuesta entre tratamientos; se centra en la mediana para mayor
+          robustez ante desviaciones de normalidad.
+        - **Independencia:** no se determina con estas pruebas. En el DCA se
+          justifica principalmente mediante la asignación aleatoria de las
+          unidades experimentales y una ejecución adecuada del ensayo.
+        """
+    )
+
+    estadistico_shapiro, p_shapiro, conclusion_shapiro = prueba_shapiro(
+        datos_residuos["Residuos"], alfa
+    )
+    estadistico_levene, p_levene, conclusion_levene = prueba_levene(
+        datos, columna_tratamiento, columna_respuesta, alfa
+    )
+    tabla_supuestos = pd.DataFrame(
+        [
+            {
+                "Prueba": "Shapiro-Wilk",
+                "Estadístico": estadistico_shapiro,
+                "p-valor": p_shapiro,
+                "Conclusión": conclusion_shapiro,
+            },
+            {
+                "Prueba": "Levene (mediana)",
+                "Estadístico": estadistico_levene,
+                "p-valor": p_levene,
+                "Conclusión": conclusion_levene,
+            },
+        ]
+    )
+    st.dataframe(
+        tabla_supuestos.style.format(
+            {"Estadístico": "{:.4f}", "p-valor": "{:.4f}"}
+        ),
+        width="stretch",
+        hide_index=True,
+    )
+
+    st.subheader("Residuos vs. valores ajustados")
+    st.plotly_chart(
+        grafico_residuos_vs_ajustados(datos_residuos), width="stretch"
+    )
+
+    st.subheader("Gráfico Q-Q de los residuos")
+    st.plotly_chart(
+        grafico_qq(datos_residuos["Residuos"]), width="stretch"
+    )

@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Archivos generados por la aplicación y entorno virtual local
+.venv/
+exports/
